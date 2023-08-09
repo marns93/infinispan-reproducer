@@ -1,0 +1,91 @@
+<infinispan
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+        urn:infinispan:config:14.0 https://infinispan.org/schemas/infinispan-config-14.0.xsd
+        urn:infinispan:server:14.0 https://infinispan.org/schemas/infinispan-server-14.0.xsd
+        urn:infinispan:config:store:jdbc:14.0 https://infinispan.org/schemas/infinispan-cachestore-jdbc-config-14.0.xsd
+        urn:infinispan:config:store:jdbc-common:14.0 https://infinispan.org/schemas/infinispan-cachestore-jdbc-common-config-14.0.xsd
+        "
+        xmlns="urn:infinispan:config:14.0"
+>
+    <cache-container name="local" statistics="true">
+        <transport cluster="${infinispan.cluster.name:cluster}"
+                   stack="${infinispan.cluster.stack:tcp}"
+                   node-name="${infinispan.node.name:}"/>
+
+
+        <distributed-cache-configuration name="postgres-cache-config">
+            <encoding>
+                <key media-type="application/x-jboss-marshalling"/>
+                <value media-type="application/x-jboss-marshalling"/>
+            </encoding>
+            <transaction mode="NON_XA"/>
+            <persistence availability-interval="200">
+                <string-keyed-jdbc-store xmlns="urn:infinispan:config:store:jdbc:14.0" shared="true">
+                    <data-source xmlns="urn:infinispan:config:store:jdbc-common:14.0" jndi-url="jdbc/postgres"/>
+                    <string-keyed-table drop-on-exit="false" create-on-start="true" prefix="infinispan">
+                        <id-column name="id" type="VARCHAR"/>
+                        <data-column name="datum" type="BYTEA"/>
+                        <timestamp-column name="version" type="BIGINT"/>
+                        <segment-column name="segment" type="INT"/>
+                    </string-keyed-table>
+                </string-keyed-jdbc-store>
+            </persistence>
+        </distributed-cache-configuration>
+
+        <distributed-cache name="authenticationSessions" configuration="postgres-cache-config"/>
+        <distributed-cache name="sessions" configuration="postgres-cache-config"/>
+        <distributed-cache name="clientSessions" configuration="postgres-cache-config"/>
+        <distributed-cache name="offlineSessions" configuration="postgres-cache-config"/>
+        <distributed-cache name="offlineClientSessions" configuration="postgres-cache-config"/>
+        <distributed-cache name="loginFailures" configuration="postgres-cache-config"/>
+        <distributed-cache name="actionTokens" configuration="postgres-cache-config"/>
+    </cache-container>
+
+    <server xmlns="urn:infinispan:server:14.0">
+        <interfaces>
+            <interface name="public">
+                <inet-address value="${infinispan.bind.address:127.0.0.1}"/>
+            </interface>
+        </interfaces>
+
+        <socket-bindings default-interface="public" port-offset="${infinispan.socket.binding.port-offset:0}">
+            <socket-binding name="default" port="${infinispan.bind.port:11222}"/>
+        </socket-bindings>
+
+        <security>
+            <credential-stores>
+                <credential-store name="credentials" path="credentials.pfx">
+                    <clear-text-credential clear-text="secret"/>
+                </credential-store>
+            </credential-stores>
+            <security-realms>
+                <security-realm name="default">
+                    <properties-realm groups-attribute="Roles">
+                        <user-properties path="users.properties"/>
+                        <group-properties path="groups.properties"/>
+                    </properties-realm>
+                </security-realm>
+            </security-realms>
+        </security>
+
+        <data-sources>
+            <data-source name="mm-ds" jndi-name="jdbc/postgres" statistics="true">
+                <connection-factory driver="org.postgresql.Driver"
+                                    url="jdbc:postgresql://${env.DB_ADDR}:${env.DB_PORT}/${env.DB_DATABASE}"
+                                    username="${env.DB_USER}"
+                                    password="${env.DB_PASSWORD}">
+                </connection-factory>
+                <connection-pool initial-size="2"
+                                 max-size="5"
+                                 min-size="2"
+                                 background-validation="500"
+                                 idle-removal="1"
+                                 blocking-timeout="5000"
+                                 leak-detection="10000"/>
+            </data-source>
+        </data-sources>
+
+        <endpoints socket-binding="default"/>
+    </server>
+</infinispan>

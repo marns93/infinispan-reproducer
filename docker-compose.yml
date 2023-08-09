@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:13-alpine
+    environment:
+      - POSTGRES_USER=infinispan
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=infinispan
+    ports:
+      - "15433:5432"
+
+  infinispan:
+    build:
+      context: .
+    ports:
+      - "11222:11222"
+      - "8787:8787"
+      - "9999:9999"
+    environment:
+      - USER=admin
+      - PASS=admin
+      - DB_VENDOR=postgres
+      - DB_ADDR=postgres
+      - DB_PORT=5432
+      - DB_DATABASE=infinispan
+      - DB_USER=infinispan
+      - DB_PASSWORD=password
+      - DEBUG=true
+    depends_on:
+      - postgres
+    command: "run"
